@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       openobserve:
-        image: public.ecr.aws/openobserve/openobserve:latest
+        image: public.ecr.aws/zinclabs/openobserve:latest
         ports:
           - 5080:5080
         env:
