@@ -41,22 +41,28 @@ func (l *LogOutput) sendLogToExternalService() {
 	if len(l.logs) == 0 {
 		return
 	}
+	defer func() {
+		l.logs = make([][]byte, 0)
+	}()
 	payload := []json.RawMessage{}
 	for _, log := range l.logs {
 		payload = append(payload, json.RawMessage(log))
 	}
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
-		panic(fmt.Errorf("failed to marshal payload: %w", err))
+		fmt.Fprintf(os.Stderr, "failed to marshal payload: %v\n", err)
+		return
 	}
 
 	url, err := url.JoinPath(l.externalUrl, "api", l.externalOrganization, l.externalStream, "_json")
 	if err != nil {
-		panic(fmt.Errorf("failed to parse URL: %w", err))
+		fmt.Fprintf(os.Stderr, "failed to parse URL: %v\n", err)
+		return
 	}
 	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
 	if err != nil {
-		panic(fmt.Errorf("failed to create request: %w", err))
+		fmt.Fprintf(os.Stderr, "failed to create request: %v\n", err)
+		return
 	}
 
 	req.Header.Set("Authorization", "Basic "+l.authToken)
@@ -73,17 +79,17 @@ func (l *LogOutput) sendLogToExternalService() {
 	// Send the request
 	resp, err := client.Do(req)
 	if err != nil {
-		panic(fmt.Errorf("request failed: %w", err))
+		fmt.Fprintf(os.Stderr, "request failed: %v\n", err)
+		return
 	}
 	defer resp.Body.Close()
 	println("Response Status:", resp.Status)
 	if resp.StatusCode != http.StatusOK {
 		_, err := io.ReadAll(resp.Body)
 		if err != nil {
-			panic(fmt.Errorf("failed to read response body: %w", err))
+			fmt.Fprintf(os.Stderr, "failed to read response body: %v\n", err)
 		}
 	}
-	l.logs = make([][]byte, 0)
 }
 
 // ForceLogToExternalService forces any pending logs to be uploaded.
