@@ -1,3 +1,5 @@
+// Package logoutput provides an io.Writer implementation that can forward
+// logs to an OpenObserve instance while still writing them to stdout.
 package logoutput
 
 import (
@@ -11,6 +13,8 @@ import (
 	"time"
 )
 
+// LogOutput implements io.Writer and buffers log entries for optional
+// delivery to an OpenObserve instance.
 type LogOutput struct {
 	enableExtenal        bool
 	externalUrl          string
@@ -22,6 +26,8 @@ type LogOutput struct {
 	lastLogUpload        time.Time
 }
 
+// Write implements io.Writer. It always writes to stdout and, when external
+// logging is enabled, queues the log entry for uploading to OpenObserve.
 func (l *LogOutput) Write(p []byte) (n int, err error) {
 	if l.enableExtenal {
 		var data []byte = make([]byte, len(p))
@@ -80,15 +86,23 @@ func (l *LogOutput) sendLogToExternalService() {
 	l.logs = make([][]byte, 0)
 }
 
+// ForceLogToExternalService forces any pending logs to be uploaded.
+// The function is currently a placeholder for future enhancements.
 func ForceLogToExternalService() {
 
 }
+
+// Close flushes any buffered logs and releases resources associated with the
+// writer.
 func (l *LogOutput) Close() {
 	if l.enableExtenal {
 		l.sendLogToExternalService()
 		close(l.logChannel)
 	}
 }
+
+// New creates a new LogOutput. When enableExtenal is true, logs are queued and
+// periodically uploaded to the provided OpenObserve endpoint.
 func New(enableExtenal bool, externalUrl, authToken, externalOrganization, externalStream string) *LogOutput {
 
 	l := &LogOutput{}
