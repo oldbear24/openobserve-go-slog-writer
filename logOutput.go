@@ -37,9 +37,9 @@ func (l *LogOutput) Write(p []byte) (n int, err error) {
 	return os.Stdout.Write(p)
 }
 
-func (l *LogOutput) sendLogToExternalService() {
+func (l *LogOutput) sendLogToExternalService() error {
 	if len(l.logs) == 0 {
-		return
+		return nil
 	}
 	defer func() {
 		l.logs = make([][]byte, 0)
@@ -50,19 +50,16 @@ func (l *LogOutput) sendLogToExternalService() {
 	}
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to marshal payload: %v\n", err)
-		return
+		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
 	url, err := url.JoinPath(l.externalUrl, "api", l.externalOrganization, l.externalStream, "_json")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to parse URL: %v\n", err)
-		return
+		return fmt.Errorf("failed to parse URL: %w", err)
 	}
 	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create request: %v\n", err)
-		return
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Basic "+l.authToken)
@@ -79,17 +76,14 @@ func (l *LogOutput) sendLogToExternalService() {
 	// Send the request
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "request failed: %v\n", err)
-		return
+		return fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
-	println("Response Status:", resp.Status)
 	if resp.StatusCode != http.StatusOK {
-		_, err := io.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to read response body: %v\n", err)
-		}
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status: %s body: %s", resp.Status, string(body))
 	}
+	return nil
 }
 
 // ForceLogToExternalService forces any pending logs to be uploaded.
@@ -102,7 +96,9 @@ func ForceLogToExternalService() {
 // writer.
 func (l *LogOutput) Close() {
 	if l.enableExtenal {
-		l.sendLogToExternalService()
+		if err := l.sendLogToExternalService(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to send logs: %v\n", err)
+		}
 		close(l.logChannel)
 	}
 }
@@ -131,12 +127,16 @@ func (l *LogOutput) logWorker() {
 		select {
 		case <-time.After(time.Second * 5):
 			if l.shouldSendLog() {
-				l.sendLogToExternalService()
+				if err := l.sendLogToExternalService(); err != nil {
+					fmt.Fprintf(os.Stderr, "failed to send logs: %v\n", err)
+				}
 			}
 		case log := <-l.logChannel:
 			l.logs = append(l.logs, log)
 			if l.shouldSendLog() {
-				l.sendLogToExternalService()
+				if err := l.sendLogToExternalService(); err != nil {
+					fmt.Fprintf(os.Stderr, "failed to send logs: %v\n", err)
+				}
 			}
 
 		}
