@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      openobserve:
+        image: public.ecr.aws/zinclabs/openobserve:latest
+        ports:
+          - 5080:5080
+        env:
+          ZO_ROOT_USER_EMAIL: root@example.com
+          ZO_ROOT_USER_PASSWORD: Complexpass#123
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Wait for OpenObserve
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:5080/ > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Run tests
+        run: go test ./...
