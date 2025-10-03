@@ -1,4 +1,5 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/oldbear24/openobserve-go-slog-writer.svg)](https://pkg.go.dev/github.com/oldbear24/openobserve-go-slog-writer)
+[![Go Report Card](https://goreportcard.com/badge/github.com/oldbear24/openobserve-go-slog-writer)](https://goreportcard.com/report/github.com/oldbear24/openobserve-go-slog-writer)
 # OpenObserve Go slog writer
 
 This module provides an `io.Writer` for Go's `slog` logging framework that forwards records to an [OpenObserve](https://openobserve.ai) instance while still writing them to standard output.
